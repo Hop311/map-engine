@@ -1,6 +1,6 @@
 #pragma once
 
-#include <gl/glew.h>
+#include <GL/glew.h>
 
 void enable_gl_debug_output();
 int load_shader(GLenum shader_type, GLuint &shader, const char *source);
