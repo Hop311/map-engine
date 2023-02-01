@@ -143,5 +143,5 @@ void Graphics::render(const Camera *camera) {
 
 void Graphics::resize(glm::ivec2 dims) {
 	glViewport(0, 0, dims.x, dims.y);
-	proj = glm::perspective(70.0f, (float)dims.x / (float)dims.y, 0.1f, 100.0f);
+	proj = glm::perspective(glm::radians(70.0f), (float)dims.x / (float)dims.y, 0.1f, 100.0f);
 }

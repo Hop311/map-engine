@@ -25,7 +25,7 @@ static struct {
 	} cursor;
 } window;
 
-static CameraFree camera;
+static CameraRot camera;
 
 static void error_callback(int err, const char *desc) {
 	logger("GLFW error ", err, ": ", desc, ".");
@@ -111,7 +111,7 @@ void Window::deinit() {
 const uint64_t TARGET_TPS = 60;
 const double TARGET_SPT = 1.0 / double(TARGET_TPS);
 
-void loop_function() {
+static void loop_function() {
 	logger("Started window loop.");
 	glfwMakeContextCurrent(window.glfw_ptr);
 
@@ -152,17 +152,20 @@ void loop_function() {
 						}
 					}
 					window.key_events.clear();
-					glm::vec3 move{};
+
+					const glm::vec2 yaw_pitch = 0.01f * (window.cursor.old_pos - window.cursor.pos);
+					if (yaw_pitch != glm::vec2{}) camera.rotate(yaw_pitch);
+					window.cursor.old_pos = window.cursor.pos;
+
 					const float speed = key_left_control ? 0.5f : 0.1f;
+					glm::vec3 move{};
 					if (key_w) move.z -= speed;
 					if (key_s) move.z += speed;
 					if (key_a) move.x -= speed;
 					if (key_d) move.x += speed;
 					if (key_space) move.y += speed;
 					if (key_left_shift) move.y -= speed;
-					camera.rotate(0.01f * (window.cursor.old_pos - window.cursor.pos));
-					window.cursor.old_pos = window.cursor.pos;
-					camera.move(move);
+					if (move != glm::vec3{}) camera.move(move);
 				}
 			} while (tick_time_passed >= TARGET_SPT);
 
