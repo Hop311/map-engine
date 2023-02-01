@@ -5,6 +5,7 @@
 #include "Camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <SOIL2.h>
 
 const glm::vec3 RED{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GREEN{ 0.0f, 1.0f, 0.0f };
@@ -16,70 +17,56 @@ const glm::vec3 BLACK{};
 const glm::vec3 WHITE{ 1.0f };
 const glm::vec3 GREY{ 0.5f };
 
-const float FLOOR_SIZE = 5.0f, FLOOR_HEIGHT = -2.5f;
-const float CUBE_SIZE = 1.0f;
-
 struct vertex_t {
-	glm::vec3 pos, colour;
+	glm::vec3 pos;
+	glm::vec2 colour;
 };
 
-const vertex_t FLOOR[4] = {
-	{ { -FLOOR_SIZE, FLOOR_HEIGHT, -FLOOR_SIZE }, GREY },
-	{ { -FLOOR_SIZE, FLOOR_HEIGHT,  FLOOR_SIZE }, GREY },
-	{ {  FLOOR_SIZE, FLOOR_HEIGHT,  FLOOR_SIZE }, GREY },
-	{ {  FLOOR_SIZE, FLOOR_HEIGHT, -FLOOR_SIZE }, GREY }
+const float MAP_SIZE = 5.0f, MAP_HEIGHT = -2.5f;
+const vertex_t MAP[4] = {
+	{ { -MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 0.0f, 1.0f } },
+	{ { -MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 0.0f, 0.0f } },
+	{ {  MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 1.0f, 1.0f } },
+	{ {  MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 1.0f, 0.0f } }
 };
-const vertex_t CUBE[8] = {
-	{ { -CUBE_SIZE,  CUBE_SIZE, -CUBE_SIZE }, RED },
-	{ { -CUBE_SIZE,  CUBE_SIZE,  CUBE_SIZE }, GREEN },
-	{ {  CUBE_SIZE,  CUBE_SIZE,  CUBE_SIZE }, BLUE },
-	{ {  CUBE_SIZE,  CUBE_SIZE, -CUBE_SIZE }, YELLOW },
-	{ { -CUBE_SIZE, -CUBE_SIZE, -CUBE_SIZE }, CYAN },
-	{ { -CUBE_SIZE, -CUBE_SIZE,  CUBE_SIZE }, MAGENTA },
-	{ {  CUBE_SIZE, -CUBE_SIZE,  CUBE_SIZE }, BLACK },
-	{ {  CUBE_SIZE, -CUBE_SIZE, -CUBE_SIZE }, WHITE },
-};
-
 const vertex_t VERT_DATA[] = {
-	FLOOR[0], FLOOR[1], FLOOR[2], FLOOR[0], FLOOR[2], FLOOR[3],
-	CUBE[0], CUBE[1], CUBE[2], CUBE[0], CUBE[2], CUBE[3],
-	CUBE[4], CUBE[6], CUBE[5], CUBE[4], CUBE[7], CUBE[6],
-	CUBE[0], CUBE[4], CUBE[5], CUBE[0], CUBE[5], CUBE[1],
-	CUBE[1], CUBE[5], CUBE[6], CUBE[1], CUBE[6], CUBE[2],
-	CUBE[2], CUBE[6], CUBE[7], CUBE[2], CUBE[7], CUBE[3],
-	CUBE[3], CUBE[7], CUBE[4], CUBE[3], CUBE[4], CUBE[0]
+	MAP[0], MAP[1], MAP[2], MAP[3]
 };
 const char *const SHADER_VERT = R"(
 #version 330 core
 
 layout(location = 0) in vec3 position_in;
-layout(location = 1) in vec3 colour_in;
+layout(location = 1) in vec2 uv_in;
 
-out vec3 colour_frag;
+out vec2 uv_frag;
 
 uniform mat4 view;
 uniform mat4 proj;
 
 void main() {
 	gl_Position = proj * view * vec4(position_in, 1.0f);
-	colour_frag = colour_in;
+	uv_frag = uv_in;
 }
 )";
 const char *const SHADER_FRAG = R"(
 #version 330 core
 
-in vec3 colour_frag;
+in vec2 uv_frag;
 
 out vec4 colour_out;
 
+uniform sampler2D tex;
+
 void main() {
-	colour_out = vec4(colour_frag, 1.0f);
+	colour_out = texture(tex, uv_frag);
 }
 )";
 
-GLuint program = 0, vao = 0, vbo = 0;
-GLint view_uniform = 0, proj_uniform = 0;
-glm::mat4 proj;
+#define MAP_DIR R"(C:\Users\hop31\Documents\Workspace\map-engine\map\)"
+
+static GLuint program = 0, tex = 0, vao = 0, vbo = 0;
+static GLint view_uniform = 0, proj_uniform = 0, tex_uniform = 0;
+static glm::mat4 proj;
 
 bool Graphics::init() {
 	glewExperimental = true;
@@ -91,7 +78,7 @@ bool Graphics::init() {
 	enable_gl_debug_output();
 
 	glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-	//glEnable(GL_MULTISAMPLE);
+	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
@@ -99,7 +86,7 @@ bool Graphics::init() {
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Loading shaders
+	// Load shaders
 	int ret = load_program(program, SHADER_VERT, nullptr, SHADER_FRAG);
 	if (ret) {
 		logger("Failed to load shaders.");
@@ -107,6 +94,19 @@ bool Graphics::init() {
 	}
 	view_uniform = glGetUniformLocation(program, "view");
 	proj_uniform = glGetUniformLocation(program, "proj");
+	tex_uniform = glGetUniformLocation(program, "tex");
+
+	// Load images
+	tex = SOIL_load_OGL_texture(MAP_DIR "provinces.bmp",
+		SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
+	if (!tex) {
+		logger("Failed to load province texture.");
+		glDeleteProgram(program);
+		return false;
+	}
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	// Generate tris buffer and vao
 	glGenVertexArrays(1, &vao);
@@ -115,10 +115,11 @@ bool Graphics::init() {
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)sizeof(glm::vec3));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)sizeof(glm::vec3));
 	glEnableVertexAttribArray(1);
 
 	glUseProgram(program);
+	glUniform1i(tex_uniform, 0);
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(VERT_DATA), VERT_DATA, GL_STATIC_DRAW);
 
@@ -128,6 +129,7 @@ bool Graphics::init() {
 
 void Graphics::deinit() {
 	glDeleteProgram(program);
+	glDeleteTextures(1, &tex);
 	glDeleteVertexArrays(1, &vao);
 	glDeleteBuffers(1, &vbo);
 
@@ -138,7 +140,7 @@ void Graphics::render(const Camera *camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUniformMatrix4fv(proj_uniform, 1, GL_FALSE, &proj[0][0]);
 	glUniformMatrix4fv(view_uniform, 1, GL_FALSE, &camera->getMatrix()[0][0]);
-	glDrawArrays(GL_TRIANGLES, 0, sizeof(VERT_DATA) / sizeof(vertex_t));
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(VERT_DATA) / sizeof(vertex_t));
 }
 
 void Graphics::resize(glm::ivec2 dims) {

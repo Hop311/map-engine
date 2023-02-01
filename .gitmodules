@@ -7,3 +7,6 @@
 [submodule "deps/glm"]
 	path = deps/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "deps/soil2"]
+	path = deps/soil2
+	url = https://github.com/SpartanJ/SOIL2.git
