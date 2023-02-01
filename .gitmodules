@@ -7,6 +7,3 @@
 [submodule "deps/glm"]
 	path = deps/glm
 	url = https://github.com/g-truc/glm.git
-[submodule "deps/soil"]
-	path = deps/soil
-	url = https://github.com/burtonageo/SOIL.git
