@@ -22,7 +22,7 @@ struct vertex_t {
 	glm::vec2 colour;
 };
 
-const float MAP_SIZE = 5.0f, MAP_HEIGHT = -2.5f;
+const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f;
 const vertex_t MAP[4] = {
 	{ { -MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 0.0f, 1.0f } },
 	{ { -MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 0.0f, 0.0f } },
@@ -40,11 +40,10 @@ layout(location = 1) in vec2 uv_in;
 
 out vec2 uv_frag;
 
-uniform mat4 view;
-uniform mat4 proj;
+uniform mat4 model, view, proj;
 
 void main() {
-	gl_Position = proj * view * vec4(position_in, 1.0f);
+	gl_Position = proj * view * model * vec4(position_in, 1.0f);
 	uv_frag = uv_in;
 }
 )";
@@ -55,18 +54,35 @@ in vec2 uv_frag;
 
 out vec4 colour_out;
 
-uniform sampler2D tex;
+uniform sampler2D provinces_tex, terrain_tex;
 
 void main() {
-	colour_out = texture(tex, uv_frag);
+	colour_out = 0.5f * (texture(provinces_tex, uv_frag) + texture(terrain_tex, uv_frag));
 }
 )";
 
-#define MAP_DIR R"(C:\Users\hop31\Documents\Workspace\map-engine\map\)"
+static GLuint program, vao, vbo;
+static GLint model_uniform, view_uniform, proj_uniform, province_tex_uniform, terrain_tex_uniform;
+static glm::mat4 model, proj;
 
-static GLuint program = 0, tex = 0, vao = 0, vbo = 0;
-static GLint view_uniform = 0, proj_uniform = 0, tex_uniform = 0;
-static glm::mat4 proj;
+struct Texture {
+	const char *filepath;
+	GLuint id;
+	glm::ivec2 dims;
+	float aspect_ratio;
+};
+enum Assets : int {
+	PROVINCES, TERRAIN, COLOURMAP, ASSET_COUNT
+};
+#define MAP_DIR R"(C:\Users\hop31\Documents\Workspace\map-engine\map\)"
+static const char *const ASSET_PATHS[ASSET_COUNT] = {
+	MAP_DIR "provinces.bmp", MAP_DIR "terrain.bmp", MAP_DIR "terrain/colormap.dds"
+};
+static struct {
+	Texture textures[ASSET_COUNT];
+	glm::ivec2 dims;
+	float aspect_ratio;
+} map;
 
 bool Graphics::init() {
 	glewExperimental = true;
@@ -92,21 +108,32 @@ bool Graphics::init() {
 		logger("Failed to load shaders.");
 		return false;
 	}
+	model_uniform = glGetUniformLocation(program, "model");
 	view_uniform = glGetUniformLocation(program, "view");
 	proj_uniform = glGetUniformLocation(program, "proj");
-	tex_uniform = glGetUniformLocation(program, "tex");
+	province_tex_uniform = glGetUniformLocation(program, "province_tex");
+	terrain_tex_uniform = glGetUniformLocation(program, "terrain_tex");
 
 	// Load images
-	tex = SOIL_load_OGL_texture(MAP_DIR "provinces.bmp",
-		SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
-	if (!tex) {
-		logger("Failed to load province texture.");
+	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
+		Texture &tex = map.textures[idx];
+		tex.filepath = ASSET_PATHS[idx];
+		if (load_texture(tex.filepath, tex.id, tex.dims.x, tex.dims.y, GL_NEAREST, GL_NEAREST)) {
+			ret = 1;
+			break;
+		}
+		tex.aspect_ratio = (float)tex.dims.x / (float)tex.dims.y;
+		logger("Loaded ", tex.filepath, " with dims ", tex.dims.x, " x ", tex.dims.y, " (aspect ratio ", tex.aspect_ratio, ").");
+	}
+	if (ret) {
+		for (int idx = 0; idx < ASSET_COUNT; ++idx)
+			glDeleteTextures(1, &map.textures[idx].id);
 		glDeleteProgram(program);
 		return false;
 	}
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	map.dims = map.textures[PROVINCES].dims;
+	map.aspect_ratio = map.textures[PROVINCES].aspect_ratio;
+	model = glm::scale(glm::mat4{ 1.0f }, { map.aspect_ratio, 1.0f, 1.0f });
 
 	// Generate tris buffer and vao
 	glGenVertexArrays(1, &vao);
@@ -119,7 +146,13 @@ bool Graphics::init() {
 	glEnableVertexAttribArray(1);
 
 	glUseProgram(program);
-	glUniform1i(tex_uniform, 0);
+	glUniformMatrix4fv(model_uniform, 1, GL_FALSE, &model[0][0]);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, map.textures[PROVINCES].id);
+	glUniform1i(province_tex_uniform, 0);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, map.textures[TERRAIN].id);
+	glUniform1i(terrain_tex_uniform, 1);
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(VERT_DATA), VERT_DATA, GL_STATIC_DRAW);
 
@@ -128,10 +161,11 @@ bool Graphics::init() {
 }
 
 void Graphics::deinit() {
-	glDeleteProgram(program);
-	glDeleteTextures(1, &tex);
-	glDeleteVertexArrays(1, &vao);
 	glDeleteBuffers(1, &vbo);
+	glDeleteVertexArrays(1, &vao);
+	for (int idx = 0; idx < ASSET_COUNT; ++idx)
+		glDeleteTextures(1, &map.textures[idx].id);
+	glDeleteProgram(program);
 
 	logger("Successfully deinitialised graphics.");
 }

@@ -34,7 +34,7 @@ glm::mat4 CameraFree::getMatrix() const {
 	return matrix;
 }
 
-const float PITCH_LIMIT = std::numbers::pi_v<float> * 0.5f - glm::radians(10.0f);
+const float PITCH_LIMIT = std::numbers::pi_v<float> * 0.5f - glm::radians(35.0f);
 
 CameraRot::CameraRot() : CameraRot{ glm::vec3{}, glm::vec2{} } {}
 CameraRot::CameraRot(glm::vec3 position, glm::vec2 yaw_pitch_rads) :

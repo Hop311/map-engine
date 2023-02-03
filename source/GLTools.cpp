@@ -2,6 +2,8 @@
 
 #include "Logger.hpp"
 
+#include "SOIL2.h"
+
 #include <vector>
 
 static const char *debug_type_name(GLenum type) {
@@ -106,4 +108,30 @@ int load_program(GLuint &program, const char *vertex_shader, const char *geometr
 		program = 0;
 		return -1;
 	}
+}
+
+int load_texture(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter) {
+	width = 0;
+	height = 0;
+	tex_id = SOIL_load_OGL_texture(filepath, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
+	if (!tex_id) {
+		logger("Failed to load texture ", filepath);
+		return -1;
+	}
+	glBindTexture(GL_TEXTURE_2D, tex_id);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &height);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	if (width <= 0 || height <= 0) {
+		logger("Invalid texture dims ", width, " x ", height, " for ", filepath);
+		glDeleteTextures(1, &tex_id);
+		tex_id = 0;
+		width = 0;
+		height = 0;
+		return -1;
+	}
+	return 0;
 }
