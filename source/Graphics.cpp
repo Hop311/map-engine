@@ -7,6 +7,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <SOIL2.h>
 
+#include "map_vert.glsl"
+#include "map_frag.glsl"
+
 const glm::vec3 RED{ 1.0f, 0.0f, 0.0f };
 const glm::vec3 GREEN{ 0.0f, 1.0f, 0.0f };
 const glm::vec3 BLUE{ 0.0f, 0.0f, 1.0f };
@@ -32,38 +35,6 @@ const vertex_t MAP[4] = {
 const vertex_t VERT_DATA[] = {
 	MAP[0], MAP[1], MAP[2], MAP[3]
 };
-const char *const SHADER_VERT = R"(
-#version 330 core
-
-layout(location = 0) in vec3 position_in;
-layout(location = 1) in vec2 uv_in;
-
-out vec2 uv_frag;
-
-uniform mat4 model, view, proj;
-
-void main() {
-	gl_Position = proj * view * model * vec4(position_in, 1.0f);
-	uv_frag = uv_in;
-}
-)";
-const char *const SHADER_FRAG = R"(
-#version 330 core
-
-in vec2 uv_frag;
-
-out vec4 colour_out;
-
-uniform sampler2D provinces_tex, terrain_tex;
-
-void main() {
-	colour_out = 0.5f * (texture(provinces_tex, uv_frag) + texture(terrain_tex, uv_frag));
-}
-)";
-
-static GLuint program, vao, vbo;
-static GLint model_uniform, view_uniform, proj_uniform, province_tex_uniform, terrain_tex_uniform;
-static glm::mat4 model, proj;
 
 struct Texture {
 	const char *filepath;
@@ -83,6 +54,10 @@ static struct {
 	glm::ivec2 dims;
 	float aspect_ratio;
 } map;
+
+static GLuint program, vao, vbo;
+static GLint model_uniform, view_uniform, proj_uniform, province_tex_uniform, terrain_tex_uniform;
+static glm::mat4 model, proj;
 
 bool Graphics::init() {
 	glewExperimental = true;
