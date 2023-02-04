@@ -43,11 +43,18 @@ struct Texture {
 	float aspect_ratio;
 };
 enum Assets : int {
-	PROVINCES, TERRAIN, COLOURMAP, ASSET_COUNT
+	COLOURMAP, TERRAIN, TEXTURESHEET, ASSET_COUNT
 };
 #define MAP_DIR R"(C:\Users\hop31\Documents\Workspace\map-engine\map\)"
 static const char *const ASSET_PATHS[ASSET_COUNT] = {
-	MAP_DIR "provinces.bmp", MAP_DIR "terrain.bmp", MAP_DIR "terrain/colormap.dds"
+	MAP_DIR "terrain/colormap.dds", MAP_DIR "terrain.bmp", MAP_DIR "terrain/texturesheet.dds"
+};
+static const char *ASSET_UNIFORMS[ASSET_COUNT] = {
+	"colormap_tex", "terrain_tex", "texturesheet_tex"
+};
+typedef int (*texture_load_func)(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter);
+static texture_load_func ASSET_LOAD_FUNCS[ASSET_COUNT] = {
+	load_texture, load_bmp_texture_unpaletted, load_texture
 };
 static struct {
 	Texture textures[ASSET_COUNT];
@@ -56,10 +63,20 @@ static struct {
 } map;
 
 static GLuint program, vao, vbo;
-static GLint model_uniform, view_uniform, proj_uniform, province_tex_uniform, terrain_tex_uniform;
 static glm::mat4 model, proj;
+static struct {
+	GLint model, view, proj;
+} vert_uniforms;
+static struct {
+	GLint textures[ASSET_COUNT];
+	GLint map_dims;
+} frag_uniforms;
 
 bool Graphics::init() {
+	if constexpr (ASSET_COUNT <= 0) {
+		logger("No assets to load.");
+		return false;
+	}
 	glewExperimental = true;
 	if (glewInit() != GLEW_OK) {
 		logger("Failed to initialize GLEW.");
@@ -83,17 +100,18 @@ bool Graphics::init() {
 		logger("Failed to load shaders.");
 		return false;
 	}
-	model_uniform = glGetUniformLocation(program, "model");
-	view_uniform = glGetUniformLocation(program, "view");
-	proj_uniform = glGetUniformLocation(program, "proj");
-	province_tex_uniform = glGetUniformLocation(program, "province_tex");
-	terrain_tex_uniform = glGetUniformLocation(program, "terrain_tex");
+	vert_uniforms.model = glGetUniformLocation(program, "model");
+	vert_uniforms.view = glGetUniformLocation(program, "view");
+	vert_uniforms.proj = glGetUniformLocation(program, "proj");
+	for (int idx = 0; idx < ASSET_COUNT; ++idx)
+		frag_uniforms.textures[idx] = glGetUniformLocation(program, ASSET_UNIFORMS[idx]);
+	frag_uniforms.map_dims = glGetUniformLocation(program, "map_dims");
 
 	// Load images
 	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
 		Texture &tex = map.textures[idx];
 		tex.filepath = ASSET_PATHS[idx];
-		if (load_texture(tex.filepath, tex.id, tex.dims.x, tex.dims.y, GL_NEAREST, GL_NEAREST)) {
+		if (ASSET_LOAD_FUNCS[idx](tex.filepath, tex.id, tex.dims.x, tex.dims.y, GL_NEAREST, GL_NEAREST)) {
 			ret = 1;
 			break;
 		}
@@ -106,8 +124,8 @@ bool Graphics::init() {
 		glDeleteProgram(program);
 		return false;
 	}
-	map.dims = map.textures[PROVINCES].dims;
-	map.aspect_ratio = map.textures[PROVINCES].aspect_ratio;
+	map.dims = map.textures[0].dims;
+	map.aspect_ratio = map.textures[0].aspect_ratio;
 	model = glm::scale(glm::mat4{ 1.0f }, { map.aspect_ratio, 1.0f, 1.0f });
 
 	// Generate tris buffer and vao
@@ -121,13 +139,13 @@ bool Graphics::init() {
 	glEnableVertexAttribArray(1);
 
 	glUseProgram(program);
-	glUniformMatrix4fv(model_uniform, 1, GL_FALSE, &model[0][0]);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, map.textures[PROVINCES].id);
-	glUniform1i(province_tex_uniform, 0);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, map.textures[TERRAIN].id);
-	glUniform1i(terrain_tex_uniform, 1);
+	glUniformMatrix4fv(vert_uniforms.model, 1, GL_FALSE, &model[0][0]);
+	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
+		glActiveTexture(GL_TEXTURE0 + idx);
+		glBindTexture(GL_TEXTURE_2D, map.textures[idx].id);
+		glUniform1i(frag_uniforms.textures[idx], idx);
+	}
+	glUniform2f(frag_uniforms.map_dims, (float)map.dims.x, (float)map.dims.y);
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(VERT_DATA), VERT_DATA, GL_STATIC_DRAW);
 
@@ -147,8 +165,8 @@ void Graphics::deinit() {
 
 void Graphics::render(const Camera *camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glUniformMatrix4fv(proj_uniform, 1, GL_FALSE, &proj[0][0]);
-	glUniformMatrix4fv(view_uniform, 1, GL_FALSE, &camera->getMatrix()[0][0]);
+	glUniformMatrix4fv(vert_uniforms.proj, 1, GL_FALSE, &proj[0][0]);
+	glUniformMatrix4fv(vert_uniforms.view, 1, GL_FALSE, &camera->getMatrix()[0][0]);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(VERT_DATA) / sizeof(vertex_t));
 }
 

@@ -135,3 +135,61 @@ int load_texture(const char *filepath, GLuint &tex_id, GLint &width, GLint &heig
 	}
 	return 0;
 }
+
+const size_t BMP_HEADER = 54;
+int load_bmp_texture_unpaletted(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter) {
+	tex_id = 0;
+	width = 0;
+	height = 0;
+	FILE *file = nullptr;
+	int ret = fopen_s(&file, filepath, "rb");
+	if (ret || !file) {
+		logger("Failed to open ", filepath, " with code ", ret);
+		return -1;
+	}
+	uint8_t header[BMP_HEADER];
+	if (fread(header, BMP_HEADER, 1, file) != 1) {
+		logger("Failed to read header of ", filepath);
+		fclose(file);
+		return -1;
+	}
+	const uint32_t pixel_offset = *(uint32_t *)&header[10];
+	width = *(int32_t *)&header[18];
+	height = *(int32_t *)&header[22];
+	if (width <= 0 || height <= 0) {
+		logger("Invalid BMP texture dims ", width, " x ", height, " for ", filepath);
+		width = 0;
+		height = 0;
+		fclose(file);
+		return -1;
+	}
+	const int32_t size = width * height;
+	ret = fseek(file, pixel_offset, SEEK_SET);
+	if (ret) {
+		logger("Failed to get to pixel data of ", filepath, " (at ", pixel_offset, " bytes in)");
+		fclose(file);
+		return -1;
+	}
+	uint8_t *pixels = new uint8_t[size];
+	if (fread(pixels, size, 1, file) != 1) {
+		logger("Failed to read pixels (", size, " bytes at offset ", pixel_offset, ")");
+		delete[] pixels;
+		fclose(file);
+		return -1;
+	}
+	fclose(file);
+	glGenTextures(1, &tex_id);
+	if (!tex_id) {
+		logger("Failed to generated texture ID for ", filepath);
+		delete[] pixels;
+		return -1;
+	}
+	glBindTexture(GL_TEXTURE_2D, tex_id);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	delete[] pixels;
+	return 0;
+}
