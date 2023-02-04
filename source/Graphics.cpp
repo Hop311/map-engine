@@ -45,9 +45,9 @@ struct Texture {
 enum Assets : int {
 	COLOURMAP, TERRAIN, TEXTURESHEET, ASSET_COUNT
 };
-#define MAP_DIR R"(C:\Users\hop31\Documents\Workspace\map-engine\map\)"
+#define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map\)"
 static const char *const ASSET_PATHS[ASSET_COUNT] = {
-	MAP_DIR "terrain/colormap.dds", MAP_DIR "terrain.bmp", MAP_DIR "terrain/texturesheet.dds"
+	MAP_DIR "terrain/colormap.dds", MAP_DIR "terrain.bmp", MAP_DIR "terrain/texturesheet.tga"
 };
 static const char *ASSET_UNIFORMS[ASSET_COUNT] = {
 	"colormap_tex", "terrain_tex", "texturesheet_tex"
