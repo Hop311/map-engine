@@ -10,7 +10,7 @@
 #include "map_vert.glsl"
 #include "map_frag.glsl"
 
-#define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map\)"
+#define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map)"
 
 typedef glm::vec2 vertex_t;
 const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 1.5f;
@@ -26,7 +26,7 @@ enum Assets : int {
 	COLOURMAP, TERRAIN, TEXTURESHEET, ASSET_COUNT
 };
 static const char *const ASSET_PATHS[ASSET_COUNT] = {
-	MAP_DIR "terrain/colormap.dds", MAP_DIR "terrain.bmp", MAP_DIR "terrain/texturesheet.tga"
+	MAP_DIR "/terrain/colormap.dds", MAP_DIR "/terrain.bmp", MAP_DIR "/terrain/texturesheet.tga"
 };
 static const char *ASSET_UNIFORMS[ASSET_COUNT] = {
 	"colormap_tex", "terrain_tex", "texturesheet_tex"
