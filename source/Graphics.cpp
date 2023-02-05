@@ -36,7 +36,7 @@ static load_texture_func ASSET_LOAD_FUNCS[ASSET_COUNT] = {
 	load_texture, load_bmp_texture_unpaletted, load_texture
 };
 static GLint ASSET_FILTERS[ASSET_COUNT] = {
-	GL_LINEAR, GL_LINEAR, GL_LINEAR
+	GL_LINEAR, GL_NEAREST, GL_LINEAR
 };
 static unsigned ASSET_SOIL_FLAGS[ASSET_COUNT] = {
 	SOIL_FLAG_INVERT_Y, 0, 0
