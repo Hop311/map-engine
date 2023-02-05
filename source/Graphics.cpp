@@ -10,31 +10,11 @@
 #include "map_vert.glsl"
 #include "map_frag.glsl"
 
-const glm::vec3 RED{ 1.0f, 0.0f, 0.0f };
-const glm::vec3 GREEN{ 0.0f, 1.0f, 0.0f };
-const glm::vec3 BLUE{ 0.0f, 0.0f, 1.0f };
-const glm::vec3 YELLOW{ 1.0f, 1.0f, 0.0f };
-const glm::vec3 CYAN{ 0.0f, 1.0f, 1.0f };
-const glm::vec3 MAGENTA{ 1.0f, 0.0f, 1.0f };
-const glm::vec3 BLACK{};
-const glm::vec3 WHITE{ 1.0f };
-const glm::vec3 GREY{ 0.5f };
+#define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map\)"
 
-struct vertex_t {
-	glm::vec3 pos;
-	glm::vec2 colour;
-};
-
-const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f;
-const vertex_t MAP[4] = {
-	{ { -MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 0.0f, 0.0f } },
-	{ { -MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 0.0f, 1.0f } },
-	{ {  MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 1.0f, 0.0f } },
-	{ {  MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 1.0f, 1.0f } }
-};
-const vertex_t VERT_DATA[] = {
-	MAP[0], MAP[1], MAP[2], MAP[3]
-};
+typedef glm::vec2 vertex_t;
+const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 16.0f;
+static int rows, indicies_per_row;
 
 struct Texture {
 	const char *filepath;
@@ -45,7 +25,6 @@ struct Texture {
 enum Assets : int {
 	COLOURMAP, TERRAIN, TEXTURESHEET, ASSET_COUNT
 };
-#define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map\)"
 static const char *const ASSET_PATHS[ASSET_COUNT] = {
 	MAP_DIR "terrain/colormap.dds", MAP_DIR "terrain.bmp", MAP_DIR "terrain/texturesheet.tga"
 };
@@ -133,17 +112,16 @@ bool Graphics::init() {
 	}
 	map.dims = map.textures[0].dims;
 	map.aspect_ratio = map.textures[0].aspect_ratio;
-	model = glm::scale(glm::mat4{ 1.0f }, { map.aspect_ratio, 1.0f, 1.0f });
+	model = glm::scale(glm::mat4{1.0f}, {map.aspect_ratio * MAP_SIZE, 1.0f, MAP_SIZE});
+	model = glm::translate(model, { -0.5f, MAP_HEIGHT, -0.5f });
 
 	// Generate tris buffer and vao
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (void *)sizeof(glm::vec3));
-	glEnableVertexAttribArray(1);
 
 	glUseProgram(program);
 	glUniformMatrix4fv(vert_uniforms.model, 1, GL_FALSE, &model[0][0]);
@@ -152,9 +130,25 @@ bool Graphics::init() {
 		glBindTexture(GL_TEXTURE_2D, map.textures[idx].id);
 		glUniform1i(frag_uniforms.textures[idx], idx);
 	}
-	glUniform2f(frag_uniforms.map_dims, (float)map.dims.x, (float)map.dims.y);
+	const glm::vec2 map_dimsf{ (float)map.dims.x, (float)map.dims.y };
+	glUniform2f(frag_uniforms.map_dims, map_dimsf.x, map_dimsf.y);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(VERT_DATA), VERT_DATA, GL_STATIC_DRAW);
+	const glm::vec2 tile_count = ceil(map_dimsf / TILE_SIZE);
+	const glm::ivec2 tile_counti{ (int)tile_count.x, (int)tile_count.y };
+	const glm::vec2 tile_dims{ 1.0f / (float)tile_counti.x, 1.0f / (float)tile_counti.y };
+	indicies_per_row = 2 * (tile_counti.x + 1);
+	rows = tile_counti.y;
+	vertex_t *verticies = new vertex_t[indicies_per_row * tile_counti.y];
+	int pos = 0;
+	for (int y = 0; y < tile_counti.y; ++y) {
+		for (int x = 0; x < tile_counti.x + 1; ++x) {
+			verticies[pos++] = { (float)x * tile_dims.x, (float)y * tile_dims.y };
+			verticies[pos++] = { (float)x * tile_dims.x, (float)(y + 1) * tile_dims.y };
+		}
+	}
+
+	glBufferData(GL_ARRAY_BUFFER, indicies_per_row * tile_counti.y * sizeof(vertex_t), verticies, GL_STATIC_DRAW);
+	delete[] verticies;
 
 	logger("Successfully initialised graphics.");
 	return true;
@@ -174,7 +168,8 @@ void Graphics::render(const Camera *camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUniformMatrix4fv(vert_uniforms.proj, 1, GL_FALSE, &proj[0][0]);
 	glUniformMatrix4fv(vert_uniforms.view, 1, GL_FALSE, &camera->getMatrix()[0][0]);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(VERT_DATA) / sizeof(vertex_t));
+	for (int y = 0; y < rows; ++y)
+		glDrawArrays(GL_TRIANGLE_STRIP, y * indicies_per_row, indicies_per_row);
 }
 
 void Graphics::resize(glm::ivec2 dims) {
