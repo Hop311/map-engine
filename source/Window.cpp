@@ -100,7 +100,7 @@ bool Window::init(int width, int height, const char *title) {
 	return true;
 }
 
-void Window::deinit() {
+void Window::deinit(void) {
 	if (!window.glfw_ptr) {
 		logger("Window has not been initialised.");
 		return;
@@ -115,7 +115,7 @@ void Window::deinit() {
 const uint64_t TARGET_TPS = 60;
 const double TARGET_SPT = 1.0 / double(TARGET_TPS);
 
-static void loop_function() {
+static void loop_function(void) {
 	logger("Started window loop.");
 	glfwMakeContextCurrent(window.glfw_ptr);
 
@@ -153,6 +153,7 @@ static void loop_function() {
 						case GLFW_KEY_SPACE: key_space = e.action != GLFW_RELEASE; break;
 						case GLFW_KEY_LEFT_SHIFT: key_left_shift = e.action != GLFW_RELEASE; break;
 						case GLFW_KEY_LEFT_CONTROL: key_left_control = e.action != GLFW_RELEASE; break;
+						case GLFW_KEY_T: if (e.action == GLFW_PRESS) Graphics::togggle_draw_3D(); break;
 						}
 					}
 					window.key_events.clear();
@@ -198,7 +199,7 @@ static void loop_function() {
 	logger("Finishing window loop.");
 }
 
-void Window::run() {
+void Window::run(void) {
 	if (!window.glfw_ptr) {
 		logger("Window has not been initialised.");
 		return;

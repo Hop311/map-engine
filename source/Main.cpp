@@ -13,7 +13,7 @@
 	#include <glm/gtx/string_cast.hpp>
 #endif
 
-int main() {
+int main(void) {
 	if (!Window::init(1920, 1080, "sphere-map")) {
 		logger("Window initialisation failed.");
 		return -1;

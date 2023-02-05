@@ -9,6 +9,7 @@ Made for OpenVic2 Hackathon.
 - WASD for movement relative to the camera's facing direction and the up vector (0,1,0).
 - Space and left shift for movement up/down along the up vector.
 - Left control to increase movement speed.
+- T toggles 3D/height rendering.
 
 ## Build Instructions
 Before building, make sure the macro `MAP_DIR` at the top of `Graphics.cpp` is the correct path to your Vic2 install map folder (or really any folder containing `terrain/colormap.dds`, `terrain.bmp` and `terrain/texturesheet.tga`).

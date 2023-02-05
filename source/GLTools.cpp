@@ -37,7 +37,7 @@ static void GLAPIENTRY gl_debug_output(GLenum source, GLenum type, GLuint id, GL
 		logger("Unexpected user_param: ", user_param, " (was set as ", DEBUG_ID, ").");
 	logger("[", debug_type_name(type), "][", debug_severity_name(severity), "][", debug_source_name(source), "] id = ", id, ", length = ", length, ":\n\n", message, "\n");
 }
-void enable_gl_debug_output() {
+void enable_gl_debug_output(void) {
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(gl_debug_output, DEBUG_ID);
 }

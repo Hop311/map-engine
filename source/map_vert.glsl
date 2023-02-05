@@ -9,6 +9,7 @@ out vec2 uv_frag;
 
 uniform mat4 model, view, proj;
 uniform sampler2D terrain_tex;
+uniform bool draw_3D;
 
 float heights[64] = float[64](
 	0.11f, 0.11f, 0.11f, 0.11f, 0.11f, // arctic forest
@@ -29,11 +30,11 @@ float heights[64] = float[64](
 	0.2f, 0.2f, 0.2f, 0.2f             // mountain peak
 );
 
-void main() {
+void main(void) {
 	float terrain_type = floor(texture(terrain_tex, uv_in).r * 256.0f);
-	if (terrain_type < 64.0f) terrain_type = heights[int(terrain_type + 0.5f)];
+	if (draw_3D && terrain_type < 64.0f) terrain_type = heights[int(terrain_type + 0.5f)];
 	else terrain_type = 0.0f;
-	gl_Position = proj * view * model * vec4(uv_in.x, terrain_type - 0.05f, uv_in.y, 1.0f);
+	gl_Position = proj * view * model * vec4(uv_in.x, terrain_type - 0.1f, uv_in.y, 1.0f);
 	uv_frag = uv_in;
 }
 

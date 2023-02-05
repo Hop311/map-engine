@@ -2,6 +2,6 @@
 
 namespace Window {
 	bool init(int width, int height, const char *title);
-	void deinit();
-	void run();
+	void deinit(void);
+	void run(void);
 }

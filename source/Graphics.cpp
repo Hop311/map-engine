@@ -13,7 +13,7 @@
 #define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map)"
 
 typedef glm::vec2 vertex_t;
-const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 1.5f;
+const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 1.0f;
 static int rows, indicies_per_row;
 
 struct Texture {
@@ -41,23 +41,20 @@ static GLint ASSET_FILTERS[ASSET_COUNT] = {
 static unsigned ASSET_SOIL_FLAGS[ASSET_COUNT] = {
 	SOIL_FLAG_INVERT_Y, 0, 0
 };
-static struct {
-	Texture textures[ASSET_COUNT];
-	glm::ivec2 dims;
-	float aspect_ratio;
-} map;
+static Texture textures[ASSET_COUNT];
 
 static GLuint program, vao, vbo;
 static glm::mat4 model, proj;
+static bool draw_3D = true;
 static struct {
-	GLint model, view, proj;
+	GLint model, view, proj, draw_3D;
 } vert_uniforms;
 static struct {
 	GLint textures[ASSET_COUNT];
-	GLint map_dims;
+	GLint terrain_dims;
 } frag_uniforms;
 
-bool Graphics::init() {
+bool Graphics::init(void) {
 	if constexpr (ASSET_COUNT <= 0) {
 		logger("No assets to load.");
 		return false;
@@ -88,13 +85,14 @@ bool Graphics::init() {
 	vert_uniforms.model = glGetUniformLocation(program, "model");
 	vert_uniforms.view = glGetUniformLocation(program, "view");
 	vert_uniforms.proj = glGetUniformLocation(program, "proj");
+	vert_uniforms.draw_3D = glGetUniformLocation(program, "draw_3D");
 	for (int idx = 0; idx < ASSET_COUNT; ++idx)
 		frag_uniforms.textures[idx] = glGetUniformLocation(program, ASSET_UNIFORMS[idx]);
-	frag_uniforms.map_dims = glGetUniformLocation(program, "map_dims");
+	frag_uniforms.terrain_dims = glGetUniformLocation(program, "terrain_dims");
 
 	// Load images
 	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
-		Texture &tex = map.textures[idx];
+		Texture &tex = textures[idx];
 		tex.filepath = ASSET_PATHS[idx];
 		if (ASSET_LOAD_FUNCS[idx](tex.filepath, tex.id, tex.dims.x, tex.dims.y,
 			ASSET_FILTERS[idx], ASSET_FILTERS[idx], ASSET_SOIL_FLAGS[idx])) {
@@ -106,13 +104,11 @@ bool Graphics::init() {
 	}
 	if (ret) {
 		for (int idx = 0; idx < ASSET_COUNT; ++idx)
-			glDeleteTextures(1, &map.textures[idx].id);
+			glDeleteTextures(1, &textures[idx].id);
 		glDeleteProgram(program);
 		return false;
 	}
-	map.dims = map.textures[0].dims;
-	map.aspect_ratio = map.textures[0].aspect_ratio;
-	model = glm::scale(glm::mat4{1.0f}, {map.aspect_ratio * MAP_SIZE, 1.0f, MAP_SIZE});
+	model = glm::scale(glm::mat4{1.0f}, {textures[TERRAIN].aspect_ratio * MAP_SIZE, 1.0f, MAP_SIZE});
 	model = glm::translate(model, { -0.5f, MAP_HEIGHT, -0.5f });
 
 	// Generate tris buffer and vao
@@ -127,25 +123,24 @@ bool Graphics::init() {
 	glUniformMatrix4fv(vert_uniforms.model, 1, GL_FALSE, &model[0][0]);
 	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
 		glActiveTexture(GL_TEXTURE0 + idx);
-		glBindTexture(GL_TEXTURE_2D, map.textures[idx].id);
+		glBindTexture(GL_TEXTURE_2D, textures[idx].id);
 		glUniform1i(frag_uniforms.textures[idx], idx);
 	}
-	const glm::vec2 map_dimsf{ (float)map.dims.x, (float)map.dims.y };
-	glUniform2f(frag_uniforms.map_dims, map_dimsf.x, map_dimsf.y);
+	const glm::vec2 map_dims{ (float)textures[TERRAIN].dims.x, (float)textures[TERRAIN].dims.y };
+	glUniform2f(frag_uniforms.terrain_dims, map_dims.x, map_dims.y);
 
-	const glm::vec2 tile_count = ceil(map_dimsf / TILE_SIZE);
+	const glm::vec2 tile_count{ ceil(map_dims / TILE_SIZE) };
 	const glm::ivec2 tile_counti{ (int)tile_count.x, (int)tile_count.y };
-	const glm::vec2 tile_dims{ 1.0f / (float)tile_counti.x, 1.0f / (float)tile_counti.y };
+	const glm::vec2 tile_dims{ 1.0f / tile_count };
 	indicies_per_row = 2 * (tile_counti.x + 1);
 	rows = tile_counti.y;
 	vertex_t *verticies = new vertex_t[indicies_per_row * tile_counti.y];
 	int pos = 0;
-	for (int y = 0; y < tile_counti.y; ++y) {
+	for (int y = 0; y < tile_counti.y; ++y)
 		for (int x = 0; x < tile_counti.x + 1; ++x) {
 			verticies[pos++] = { (float)x * tile_dims.x, (float)y * tile_dims.y };
 			verticies[pos++] = { (float)x * tile_dims.x, (float)(y + 1) * tile_dims.y };
 		}
-	}
 
 	glBufferData(GL_ARRAY_BUFFER, indicies_per_row * tile_counti.y * sizeof(vertex_t), verticies, GL_STATIC_DRAW);
 	delete[] verticies;
@@ -154,11 +149,11 @@ bool Graphics::init() {
 	return true;
 }
 
-void Graphics::deinit() {
+void Graphics::deinit(void) {
 	glDeleteBuffers(1, &vbo);
 	glDeleteVertexArrays(1, &vao);
 	for (int idx = 0; idx < ASSET_COUNT; ++idx)
-		glDeleteTextures(1, &map.textures[idx].id);
+		glDeleteTextures(1, &textures[idx].id);
 	glDeleteProgram(program);
 
 	logger("Successfully deinitialised graphics.");
@@ -168,6 +163,7 @@ void Graphics::render(const Camera *camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUniformMatrix4fv(vert_uniforms.proj, 1, GL_FALSE, &proj[0][0]);
 	glUniformMatrix4fv(vert_uniforms.view, 1, GL_FALSE, &camera->getMatrix()[0][0]);
+	glUniform1i(vert_uniforms.draw_3D, draw_3D);
 	for (int y = 0; y < rows; ++y)
 		glDrawArrays(GL_TRIANGLE_STRIP, y * indicies_per_row, indicies_per_row);
 }
@@ -175,4 +171,8 @@ void Graphics::render(const Camera *camera) {
 void Graphics::resize(glm::ivec2 dims) {
 	glViewport(0, 0, dims.x, dims.y);
 	proj = glm::perspective(glm::radians(70.0f), (float)dims.x / (float)dims.y, 0.1f, 100.0f);
+}
+
+void Graphics::togggle_draw_3D(void) {
+	draw_3D = !draw_3D;
 }
