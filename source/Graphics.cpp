@@ -13,7 +13,7 @@
 #define MAP_DIR R"(C:\Program Files (x86)\Steam\steamapps\common\Victoria 2\map\)"
 
 typedef glm::vec2 vertex_t;
-const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 16.0f;
+const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 1.5f;
 static int rows, indicies_per_row;
 
 struct Texture {
