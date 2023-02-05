@@ -110,10 +110,10 @@ int load_program(GLuint &program, const char *vertex_shader, const char *geometr
 	}
 }
 
-int load_texture(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter) {
+int load_texture(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter, unsigned soil_flags) {
 	width = 0;
 	height = 0;
-	tex_id = SOIL_load_OGL_texture(filepath, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
+	tex_id = SOIL_load_OGL_texture(filepath, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, soil_flags);
 	if (!tex_id) {
 		logger("Failed to load texture ", filepath);
 		return -1;
@@ -137,10 +137,12 @@ int load_texture(const char *filepath, GLuint &tex_id, GLint &width, GLint &heig
 }
 
 const size_t BMP_HEADER = 54;
-int load_bmp_texture_unpaletted(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter) {
+int load_bmp_texture_unpaletted(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter, unsigned soil_flags) {
 	tex_id = 0;
 	width = 0;
 	height = 0;
+	if (soil_flags)
+		logger("soil_flags is not used here (value 0x", std::hex, soil_flags, ").");
 	FILE *file = nullptr;
 	int ret = fopen_s(&file, filepath, "rb");
 	if (ret || !file) {

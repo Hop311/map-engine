@@ -27,10 +27,10 @@ struct vertex_t {
 
 const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f;
 const vertex_t MAP[4] = {
-	{ { -MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 0.0f, 1.0f } },
-	{ { -MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 0.0f, 0.0f } },
-	{ {  MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 1.0f, 1.0f } },
-	{ {  MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 1.0f, 0.0f } }
+	{ { -MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 0.0f, 0.0f } },
+	{ { -MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 0.0f, 1.0f } },
+	{ {  MAP_SIZE, MAP_HEIGHT, -MAP_SIZE }, { 1.0f, 0.0f } },
+	{ {  MAP_SIZE, MAP_HEIGHT,  MAP_SIZE }, { 1.0f, 1.0f } }
 };
 const vertex_t VERT_DATA[] = {
 	MAP[0], MAP[1], MAP[2], MAP[3]
@@ -52,9 +52,15 @@ static const char *const ASSET_PATHS[ASSET_COUNT] = {
 static const char *ASSET_UNIFORMS[ASSET_COUNT] = {
 	"colormap_tex", "terrain_tex", "texturesheet_tex"
 };
-typedef int (*texture_load_func)(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter);
-static texture_load_func ASSET_LOAD_FUNCS[ASSET_COUNT] = {
+typedef int (*load_texture_func)(const char *filepath, GLuint &tex_id, GLint &width, GLint &height, GLint min_filter, GLint mag_filter, unsigned soil_flags);
+static load_texture_func ASSET_LOAD_FUNCS[ASSET_COUNT] = {
 	load_texture, load_bmp_texture_unpaletted, load_texture
+};
+static GLint ASSET_FILTERS[ASSET_COUNT] = {
+	GL_LINEAR, GL_LINEAR, GL_LINEAR
+};
+static unsigned ASSET_SOIL_FLAGS[ASSET_COUNT] = {
+	SOIL_FLAG_INVERT_Y, 0, 0
 };
 static struct {
 	Texture textures[ASSET_COUNT];
@@ -111,7 +117,8 @@ bool Graphics::init() {
 	for (int idx = 0; idx < ASSET_COUNT; ++idx) {
 		Texture &tex = map.textures[idx];
 		tex.filepath = ASSET_PATHS[idx];
-		if (ASSET_LOAD_FUNCS[idx](tex.filepath, tex.id, tex.dims.x, tex.dims.y, GL_NEAREST, GL_NEAREST)) {
+		if (ASSET_LOAD_FUNCS[idx](tex.filepath, tex.id, tex.dims.x, tex.dims.y,
+			ASSET_FILTERS[idx], ASSET_FILTERS[idx], ASSET_SOIL_FLAGS[idx])) {
 			ret = 1;
 			break;
 		}
