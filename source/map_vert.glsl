@@ -30,11 +30,16 @@ float heights[64] = float[64](
 	0.2f, 0.2f, 0.2f, 0.2f             // mountain peak
 );
 
-void main(void) {
-	float terrain_type = floor(texture(terrain_tex, uv_in).r * 256.0f);
-	if (draw_3D && terrain_type < 64.0f) terrain_type = heights[int(terrain_type + 0.5f)];
+float get_height(vec2 pos) {
+	float terrain_type = floor(texture(terrain_tex, pos).r * 256.0f);
+	if (terrain_type < 64.0f) terrain_type = heights[int(terrain_type + 0.5f)];
 	else terrain_type = 0.0f;
-	gl_Position = proj * view * model * vec4(uv_in.x, terrain_type - 0.1f, uv_in.y, 1.0f);
+	return terrain_type - 0.1f;
+}
+
+void main(void) {
+	float height = draw_3D ? get_height(uv_in) : 0.0f;
+	gl_Position = proj * view * model * vec4(uv_in.x, height, uv_in.y, 1.0f);
 	uv_frag = uv_in;
 }
 
