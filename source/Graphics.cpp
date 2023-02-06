@@ -24,10 +24,10 @@ enum Assets : int {
 	TERRAIN, TEXTURESHEET, COLOURMAP, COLORMAP_WATER, ASSET_COUNT
 };
 static Texture textures[ASSET_COUNT] = {
-	{ MAP_DIR "/terrain.bmp", "terrain_tex", load_bmp_texture_unpaletted, GL_NEAREST, 0 },
-	{ MAP_DIR "/terrain/texturesheet.tga", "texturesheet_tex", load_texture, GL_LINEAR, 0 },
-	{ MAP_DIR "/terrain/colormap.dds", "colormap_tex", load_texture, GL_LINEAR, SOIL_FLAG_INVERT_Y },
-	{ MAP_DIR "/terrain/colormap_water.dds", "colormap_water_tex", load_texture, GL_LINEAR, SOIL_FLAG_INVERT_Y },
+	{ MAP_DIR "/terrain.bmp", "terrain_tex", load_bmp_texture_unpaletted, GL_NEAREST, 0, 0, { 0, 0 }, 0.0f },
+	{ MAP_DIR "/terrain/texturesheet.tga", "texturesheet_tex", load_texture, GL_LINEAR, 0, 0, { 0, 0 }, 0.0f },
+	{ MAP_DIR "/terrain/colormap.dds", "colormap_tex", load_texture, GL_LINEAR, SOIL_FLAG_INVERT_Y, 0, { 0, 0 }, 0.0f },
+	{ MAP_DIR "/terrain/colormap_water.dds", "colormap_water_tex", load_texture, GL_LINEAR, SOIL_FLAG_INVERT_Y, 0, { 0, 0 }, 0.0f },
 };
 const float MAP_SIZE = 20.0f, MAP_HEIGHT = -2.5f, TILE_SIZE = 1.0f;
 static int rows, indicies_per_row;
